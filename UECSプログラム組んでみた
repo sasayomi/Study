@@ -1,0 +1,420 @@
+UECS：農業ハウス向け通信規約
+
+/*
+
+Sensor(UART) -->ARDUINO
+
+Red&white -->5V
+
+Black--> GND
+
+Blue -->D2
+
+Yellow-->D3
+
+*/
+
+/*
+
+LCD 16X2 -->ARDUINO
+
+VSS --> GND
+
+VDD -->5V
+
+V0 -->GND
+
+RS--> D4
+
+RW -->GND
+
+E -->D6
+
+DB4-->D10
+
+DB5-->D11
+
+DB6-->D12
+
+DB7-->D13
+
+*/
+
+//Sample1SendCCM
+
+#include <SPI.h>
+
+#include <Ethernet.h> //Arduino IDE Ver1.7.2以降でW5500搭載機種
+
+//#include <Ethernet.h> //Ver1.7.2以降でW5100搭載機種
+
+#include <avr/pgmspace.h>
+
+#include <EEPROM.h>
+
+#include <Uardecs.h>
+
+const byte U_InitPin = 4;//このピンは変更可能です
+
+const byte U_InitPin_Sense=HIGH;
+
+const char U_name[] PROGMEM= "UARDECS Node v.1.0";
+
+const char U_vender[] PROGMEM= "XXXXXX Co.";
+
+const char U_uecsid[] PROGMEM= "000000000000";
+
+const char U_footnote[] PROGMEM= "Test node";
+
+char U_nodename[20] = "Sample";
+
+UECSOriginalAttribute U_orgAttribute;
+
+const int U_HtmlLine = 0;//入力欄なし
+
+struct UECSUserHtml U_html[U_HtmlLine]={};
+
+enum{
+
+  CCMID_InAirTemp,
+
+  CCMID_VWC,
+
+  CCMID_ECbulk,
+
+  CCMID_ECpore,
+
+  CCMID_dummy,
+
+};
+
+const int U_MAX_CCM = CCMID_dummy;//CCMの総数
+
+UECSCCM U_ccmList[U_MAX_CCM];
+
+//CCM定義用の素材、被らないように適当な変数名で3つ宣言(必ずPROGMEMを付ける)
+
+const char ccmInfo1[] PROGMEM= "Test";//CCMの説明(Webでのみ表示)
+
+const char ccmType1[] PROGMEM= "InAirTemp";//CCMのType文字列
+
+const char ccmUnit1[] PROGMEM= "degC";//CCMの単位
+
+const char ccmInfo2[] PROGMEM= "Test";
+
+const char ccmType2[] PROGMEM= "VWC";
+
+const char ccmUnit2[] PROGMEM= "%";
+
+const char ccmInfo3[] PROGMEM= "Test";
+
+const char ccmType3[] PROGMEM= "ECbulk";
+
+const char ccmUnit3[] PROGMEM= "dS/m";
+
+const char ccmInfo4[] PROGMEM= "Test";
+
+const char ccmType4[] PROGMEM= "ECpore";
+
+const char ccmUnit4[] PROGMEM= "dS/m";
+
+void UserInit(){
+
+U_orgAttribute.mac[0] = 0x00;//MACアドレスの設定
+
+U_orgAttribute.mac[1] = 0x00;
+
+U_orgAttribute.mac[2] = 0x00;
+
+U_orgAttribute.mac[3] = 0x00;
+
+U_orgAttribute.mac[4] = 0x00;
+
+U_orgAttribute.mac[5] = 0x00;
+
+//UECSsetCCM(送受信の区分[trueで送信],通し番号[0から始まる],CCM説明,Type,単位,priority[通常は29],少数桁数[0で整数],送信頻度設定[A_1S_0で1秒間隔])
+
+UECSsetCCM(true,0 ,ccmInfo1,ccmType1,ccmUnit1,29,2,A_10S_0);
+
+UECSsetCCM(true,1 ,ccmInfo2,ccmType2,ccmUnit2,29,0,A_10S_0);
+
+UECSsetCCM(true,2 ,ccmInfo3,ccmType3,ccmUnit3,29,0,A_10S_0);
+
+UECSsetCCM(true,3 ,ccmInfo4,ccmType4,ccmUnit4,29,0,A_10S_0);
+
+}
+
+void OnWebFormRecieved(){}//sendボタンの利用
+
+////////////////////////
+
+////////////////////////
+
+void UserEverySecond(){//毎秒の動作
+
+}
+
+void UserEveryMinute(){
+
+float num=0;
+
+ Serial.println("minute");
+
+ for (int i = 1; i < 2; i++){
+
+program();
+
+  Serial.println("count");Serial.println(i);
+
+}
+
+ U_ccmList[CCMID_InAirTemp].baseAttribute[0] =1;//room
+
+ U_ccmList[CCMID_InAirTemp].baseAttribute[1] =1;
+
+ U_ccmList[CCMID_InAirTemp].baseAttribute[2] =1;
+
+ }
+
+void UserEveryLoop(){}
+
+//////////////////////////////////////////
+
+//////////////////////////////////////////
+
+#include <SoftwareSerial.h>
+
+SoftwareSerial mySerial(2,3);
+
+//long int measure[5];//flag,temp,bulk,VWC,pore
+
+char flag;
+
+char size;//valnw
+
+void program(){
+
+int flag;
+
+//測定指示
+
+int size=6;
+
+int value[]={0X02,0X07,0X01,0X01,0X0D,0X70};
+
+writecom(size,value);
+
+int valn=6;
+
+int val[6]={0};
+
+if(mySerial.available()>0){
+
+for (int i=0; i<valn;i++){
+
+  val[i]=mySerial.read();
+
+   Serial.print(val[i],HEX);
+
+}
+
+   Serial.print("read");
+
+}
+
+while (mySerial.available()>0){
+
+ char t = mySerial.read();
+
+}
+
+//   Serial.print(flag);
+
+//測定完了確認
+
+flag=0;
+
+while(flag==0){//測定完了するまで繰り返す
+
+  size=5;
+
+  int value1[]={0X01,0X08,0X01,0X00,0XE6,0X00};
+
+  writecom(size,value1);
+
+  delay(100);
+
+valn=6;
+
+int val[valn]={0};
+
+if(mySerial.available()>0){
+
+for (int i=0; i<valn;i++){
+
+  val[i]=mySerial.read();
+
+   Serial.print(val[i],HEX);
+
+}
+
+   Serial.print("read");
+
+}
+
+while (mySerial.available()>0){
+
+ char t = mySerial.read();
+
+}
+
+  delay(100);
+
+if((val[1]==8)&&(val[3]==1)){//測定完了したら
+
+Serial.print("measured");
+
+  flag=1;
+
+     Serial.print("flag:"); Serial.println(flag);
+
+size=5;//読み出し
+
+int value2[]={0X01,0X13,0X10,0XFC,0X2C,0X00};
+
+writecom(size,value2);
+
+//   Serial.print(flag);
+
+valn=21;
+
+val[valn]={0};
+
+//if(mySerial.available()>0){
+
+for (int i=0; i<valn;i++){
+
+  val[i]=mySerial.read();
+
+   Serial.print(val[i],HEX);Serial.print("   ");
+
+}
+
+   Serial.print("read");
+
+//}
+
+while (mySerial.available()>0){
+
+ char t = mySerial.read();
+
+}
+
+  delay(100);
+
+/*
+
+if((val[1]==8)&&(val[3]==1)){//測定完了したら
+
+Serial.println("measure");
+
+  flag=1;
+
+  }
+
+  */
+
+  int shift=1;
+
+  float temp;
+
+  float bulk;
+
+  float vwc;
+
+  float pore;
+
+//if(val[1]==0X13){  
+
+ temp=(val[shift+3]+val[shift+4]*256)*0.0625*100;
+
+ bulk=(val[shift+5]+val[shift+6]*256)*0.001*100;
+
+ vwc=(val[shift+9]+val[shift+10]*256)*0.1*100;
+
+ pore=(val[shift+15]+val[shift+16]*256)*0.001*100;
+
+  Serial.print(",");Serial.print(temp);
+
+  Serial.print(",");Serial.print(bulk);
+
+  Serial.print(",");Serial.print(vwc);
+
+  Serial.print(",");Serial.print(pore);Serial.println(",");
+
+ U_ccmList[CCMID_InAirTemp]. value=temp;
+
+ U_ccmList[CCMID_VWC]. value=vwc;
+
+ U_ccmList[CCMID_ECbulk]. value=bulk;
+
+ U_ccmList[CCMID_ECpore]. value=pore;
+
+//  }
+
+}
+
+}
+
+}
+
+void writecom(int size, int value[]){  
+
+for (int i=0;i<size;i++){
+
+ mySerial.write(value[i]);
+
+ Serial.print(value[i],HEX);
+
+}
+
+Serial.println("write");
+
+}
+
+
+
+void setup()
+
+{
+
+UECSsetup();
+
+Serial.begin(9600);
+
+mySerial.begin(9600);
+
+Serial.println("Setup");
+
+Serial.println("Soil Sensor");
+
+Serial.println("--------------------------------------");
+
+Serial.print("Temp [degC],");
+
+Serial.print("EC BULK [dS/m],");
+
+Serial.print("VWC [%],");
+
+Serial.println("EC PORE [dS/m");
+
+}
+
+void loop()
+
+{
+
+UECSloop();
+
+}
+
